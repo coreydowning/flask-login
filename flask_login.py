@@ -320,18 +320,15 @@ class LoginManager(object):
         return redirect(login_url(self.refresh_view, request.url))
 
     def _load_user(self):
+        current_app.logger.debug('Flask-Login: _load_user, session=%s' % session)
         if (current_app.static_url_path is not None and
                 request.path.startswith(current_app.static_url_path)):
             # load up an anonymous user for static pages
-            current_app.logger.debug("Flask-Login: Setting AnonymousUser for\
-                                     static URL")
             _request_ctx_stack.top.user = self.anonymous_user()
             return
         # load up an anonymous user by default
         user = getattr(_request_ctx_stack.top, "user", None)
         if user is None:
-            current_app.logger.debug("Flask-Login: Setting AnonymousUser\
-                                     because no user exists on context stack")
             _request_ctx_stack.top.user = self.anonymous_user()
         config = current_app.config
         if config.get("SESSION_PROTECTION", self.session_protection):
@@ -345,12 +342,8 @@ class LoginManager(object):
         # cookie user ID to the session.
         cookie_name = config.get("REMEMBER_COOKIE_NAME", COOKIE_NAME)
         if cookie_name in request.cookies and "user_id" not in session:
-            current_app.logger.debug("Flask-Login: remember_token found but\
-                                     session is missing user_id, loading from\
-                                     token")
             self._load_from_cookie(request.cookies[cookie_name])
         else:
-            current_app.logger.debug("Flask-Login: calling reload_user")
             self.reload_user()
 
     def _session_protection(self):
