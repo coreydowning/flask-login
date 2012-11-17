@@ -518,9 +518,12 @@ def login_required(fn):
     """
     @wraps(fn)
     def decorated_view(*args, **kwargs):
-        if not current_user.is_authenticated():
+        try:
+            if not current_user.is_authenticated():
+                return current_app.login_manager.unauthorized()
+            return fn(*args, **kwargs)
+        except:
             return current_app.login_manager.unauthorized()
-        return fn(*args, **kwargs)
     return decorated_view
 
 
