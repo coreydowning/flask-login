@@ -384,11 +384,11 @@ class LoginManager(object):
         else:
             user_id = decode_cookie(cookie)
 
-        if user_id is not None:
-            session["user_id"] = user_id
-            session["_fresh"] = False
-            self.reload_user()
+        session["user_id"] = user_id
+        session["_fresh"] = False
+        self.reload_user()
 
+        if user_id is not None:
             app = current_app._get_current_object()
             user_loaded_from_cookie.send(app, user=_get_user())
 
