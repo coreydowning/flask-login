@@ -371,7 +371,7 @@ class LoginManager(object):
                 ctx.user = user
 
     def _load_from_cookie(self, cookie):
-        age = current_app.config.get["REMEMBER_COOKIE_DURATION"]
+        age = current_app.config.get("REMEMBER_COOKIE_DURATION")
         try:
             cookie = self.signer.unsign(cookie, max_age=age)
         except:
