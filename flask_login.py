@@ -319,11 +319,8 @@ class LoginManager(object):
         return redirect(login_url(self.refresh_view, request.url))
 
     def _load_user(self):
-        if (current_app.static_url_path is not None and
-                request.path.startswith(current_app.static_url_path)):
-            # load up an anonymous user for static pages
-            _request_ctx_stack.top.user = self.anonymous_user()
-            return
+        # load up an anonymous user by default
+        _request_ctx_stack.top.user = self.anonymous_user()
         config = current_app.config
         if config.get("SESSION_PROTECTION", self.session_protection):
             deleted = self._session_protection()
@@ -388,9 +385,8 @@ class LoginManager(object):
         session["_fresh"] = False
         self.reload_user()
 
-        if user_id is not None:
-            app = current_app._get_current_object()
-            user_loaded_from_cookie.send(app, user=_get_user())
+        app = current_app._get_current_object()
+        user_loaded_from_cookie.send(app, user=_get_user())
 
     def _update_remember_cookie(self, response):
         operation = session.pop("remember", None)
