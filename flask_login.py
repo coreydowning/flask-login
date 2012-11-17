@@ -133,6 +133,7 @@ def _create_identifier():
     base = unicode("%s|%s" % (request.remote_addr,
                               request.headers.get("User-Agent")),
                    'utf8', errors='replace')
+    current_app.logger.debug("login: create_identifier base: %s" % base)
     hsh = md5()
     hsh.update(base.encode("utf8"))
     return hsh.hexdigest()
