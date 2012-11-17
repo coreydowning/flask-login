@@ -133,7 +133,6 @@ def _create_identifier():
     base = unicode("%s|%s" % (request.remote_addr,
                               request.headers.get("User-Agent")),
                    'utf8', errors='replace')
-    current_app.logger.debug("login: create_identifier base: %s" % base)
     hsh = md5()
     hsh.update(base.encode("utf8"))
     return hsh.hexdigest()
@@ -321,7 +320,6 @@ class LoginManager(object):
         return redirect(login_url(self.refresh_view, request.url))
 
     def _load_user(self):
-        current_app.logger.debug('Flask-Login: _load_user, session=%s' % session)
         if (current_app.static_url_path is not None and
                 request.path.startswith(current_app.static_url_path)):
             # load up an anonymous user for static pages
@@ -335,8 +333,6 @@ class LoginManager(object):
         if config.get("SESSION_PROTECTION", self.session_protection):
             deleted = self._session_protection()
             if deleted:
-                current_app.logger.debug("Flask-Login: 'deleted' detected,\
-                                         reloading user")
                 self.reload_user()
                 return
         # If a remember cookie is set, and the session is not, move the
@@ -353,7 +349,6 @@ class LoginManager(object):
         if "_id" not in sess:
             sess["_id"] = ident
         elif ident != sess["_id"]:
-            current_app.logger.debug("login: ident=%s _id=%s" % (ident, sess["_id"]))
             app = current_app._get_current_object()
             mode = app.config.get("SESSION_PROTECTION",
                                   self.session_protection)
@@ -369,21 +364,15 @@ class LoginManager(object):
         return False
 
     def reload_user(self):
-        logger = current_app.logger
-        logger.debug("Flask-Login: reload_user")
         ctx = _request_ctx_stack.top
         user_id = session.get("user_id", None)
         if user_id is None:
-            logger.debug("Flask-Login: user_id is None setting anonymous user")
             ctx.user = self.anonymous_user()
         else:
-            logger.debug("Flask-Login: user_id OK, attempting to get user")
             user = self.user_callback(user_id)
             if user is None:
-                logger.debug("Flask-Login: user not found!! logging out")
                 logout_user()
             else:
-                logger.debug("Flask-Login: user OK, setting")
                 ctx.user = user
 
     def _load_from_cookie(self, cookie):
