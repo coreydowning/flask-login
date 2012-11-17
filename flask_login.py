@@ -323,24 +323,34 @@ class LoginManager(object):
         if (current_app.static_url_path is not None and
                 request.path.startswith(current_app.static_url_path)):
             # load up an anonymous user for static pages
+            current_app.logger.debug("Flask-Login: Setting AnonymousUser for\
+                                     static URL")
             _request_ctx_stack.top.user = self.anonymous_user()
             return
         # load up an anonymous user by default
         user = getattr(_request_ctx_stack.top, "user", None)
         if user is None:
+            current_app.logger.debug("Flask-Login: Setting AnonymousUser\
+                                     because no user exists on context stack")
             _request_ctx_stack.top.user = self.anonymous_user()
         config = current_app.config
         if config.get("SESSION_PROTECTION", self.session_protection):
             deleted = self._session_protection()
             if deleted:
+                current_app.logger.debug("Flask-Login: 'deleted' detected,\
+                                         reloading user")
                 self.reload_user()
                 return
         # If a remember cookie is set, and the session is not, move the
         # cookie user ID to the session.
         cookie_name = config.get("REMEMBER_COOKIE_NAME", COOKIE_NAME)
         if cookie_name in request.cookies and "user_id" not in session:
+            current_app.logger.debug("Flask-Login: remember_token found but\
+                                     session is missing user_id, loading from\
+                                     token")
             self._load_from_cookie(request.cookies[cookie_name])
         else:
+            current_app.logger.debug("Flask-Login: calling reload_user")
             self.reload_user()
 
     def _session_protection(self):
@@ -364,15 +374,21 @@ class LoginManager(object):
         return False
 
     def reload_user(self):
+        logger = current_app.logger
+        logger.debug("Flask-Login: reload_user")
         ctx = _request_ctx_stack.top
         user_id = session.get("user_id", None)
         if user_id is None:
+            logger.debug("Flask-Login: user_id is None setting anonymous user")
             ctx.user = self.anonymous_user()
         else:
+            logger.debug("Flask-Login: user_id OK, attempting to get user")
             user = self.user_callback(user_id)
             if user is None:
+                logger.debug("Flask-Login: user not found!! logging out")
                 logout_user()
             else:
+                logger.debug("Flask-Login: user OK, setting")
                 ctx.user = user
 
     def _load_from_cookie(self, cookie):
