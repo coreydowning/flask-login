@@ -279,7 +279,7 @@ class LoginManager(object):
             abort(401)
         if self.login_message:
             flash(self.login_message, category=self.login_message_category)
-        return redirect(login_url(self.login_view, request.url))
+        return redirect(login_url(self.login_view, request.url), code=307)
 
     def needs_refresh_handler(self, callback):
         """
@@ -320,8 +320,15 @@ class LoginManager(object):
         return redirect(login_url(self.refresh_view, request.url))
 
     def _load_user(self):
+        if (current_app.static_url_path is not None and
+                request.path.startswith(current_app.static_url_path)):
+            # load up an anonymous user for static pages
+            _request_ctx_stack.top.user = self.anonymous_user()
+            return
         # load up an anonymous user by default
-        _request_ctx_stack.top.user = self.anonymous_user()
+        user = getattr(_request_ctx_stack.top, "user", None)
+        if user is None:
+            _request_ctx_stack.top.user = self.anonymous_user()
         config = current_app.config
         if config.get("SESSION_PROTECTION", self.session_protection):
             deleted = self._session_protection()
