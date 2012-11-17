@@ -352,6 +352,7 @@ class LoginManager(object):
         if "_id" not in sess:
             sess["_id"] = ident
         elif ident != sess["_id"]:
+            current_app.logger.debug("login: ident=%s _id=%s" % (ident, sess["_id"]))
             app = current_app._get_current_object()
             mode = app.config.get("SESSION_PROTECTION",
                                   self.session_protection)
