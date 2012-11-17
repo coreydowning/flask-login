@@ -15,6 +15,7 @@ from flask import (current_app, session, _request_ctx_stack, redirect, url_for,
                    request, flash, abort)
 from flask.signals import Namespace
 from functools import wraps
+from itsdangerous import TimestampSigner
 from hashlib import sha1, md5
 from urlparse import urlparse, urlunparse
 from werkzeug.local import LocalProxy
@@ -74,7 +75,7 @@ def make_next_param(login, current):
     login_scheme, login_netloc = urlparse(login)[:2]
     current_scheme, current_netloc = urlparse(current)[:2]
     if ((not login_scheme or login_scheme == current_scheme) and
-        (not login_netloc or login_netloc == current_netloc)):
+            (not login_netloc or login_netloc == current_netloc)):
         parsed = urlparse(current)
         return urlunparse(("", "", parsed[2], parsed[3], parsed[4], ""))
     return current
@@ -130,7 +131,8 @@ def make_secure_token(*args, **options):
 
 def _create_identifier():
     base = unicode("%s|%s" % (request.remote_addr,
-                              request.headers.get("User-Agent")), 'utf8', errors='replace')
+                              request.headers.get("User-Agent")),
+                   'utf8', errors='replace')
     hsh = md5()
     hsh.update(base.encode("utf8"))
     return hsh.hexdigest()
@@ -154,6 +156,7 @@ REFRESH_MESSAGE = u"Please reauthenticate to access this page."
 #: The default flash message category to display when users need to
 #: reauthenticate.
 REFRESH_MESSAGE_CATEGORY = "message"
+
 
 class LoginManager(object):
     """
@@ -191,6 +194,7 @@ class LoginManager(object):
         self.user_callback = None
         self.unauthorized_callback = None
         self.needs_refresh_callback = None
+        self.signer = TimestampSigner
 
     def user_loader(self, callback):
         """
@@ -219,7 +223,7 @@ class LoginManager(object):
         """
         import warnings
         warnings.warn("Warning setup_app is deprecated. Please use init_app",
-                       DeprecationWarning)
+                      DeprecationWarning)
         self.init_app(app, add_context_processor)
 
     def init_app(self, app, add_context_processor=True):
@@ -310,13 +314,13 @@ class LoginManager(object):
             return self.needs_refresh_callback()
         if not self.refresh_view:
             abort(403)
-        flash(self.needs_refresh_message, category=self.needs_refresh_message_category)
+        flash(self.needs_refresh_message,
+              category=self.needs_refresh_message_category)
         return redirect(login_url(self.refresh_view, request.url))
 
     def _load_user(self):
         if (current_app.static_url_path is not None and
-            request.path.startswith(current_app.static_url_path)
-        ):
+                request.path.startswith(current_app.static_url_path)):
             # load up an anonymous user for static pages
             _request_ctx_stack.top.user = self.anonymous_user()
             return
@@ -367,6 +371,12 @@ class LoginManager(object):
                 ctx.user = user
 
     def _load_from_cookie(self, cookie):
+        age = current_app.config.get["REMEMBER_COOKIE_DURATION"]
+        try:
+            cookie = self.signer.unsign(cookie, max_age=age)
+        except:
+            return
+        user_id = None
         if self.token_callback:
             user = self.token_callback(cookie)
             if user is not None:
@@ -396,14 +406,21 @@ class LoginManager(object):
         cookie_name = config.get("REMEMBER_COOKIE_NAME", COOKIE_NAME)
         duration = config.get("REMEMBER_COOKIE_DURATION", COOKIE_DURATION)
         domain = config.get("REMEMBER_COOKIE_DOMAIN", None)
+        secure = config.get("REMEMBER_COOKIE_SECURE", False)
         # prepare data
         if self.token_callback:
             data = current_user.get_auth_token()
         else:
             data = encode_cookie(str(session["user_id"]))
         expires = datetime.utcnow() + duration
+        # sign the cookie with itsdangerous
+        signed_data = self.signer.sign(data)
         # actually set it
-        response.set_cookie(cookie_name, data, expires=expires, domain=domain)
+        response.set_cookie(cookie_name,
+                            signed_data,
+                            expires=expires,
+                            domain=domain,
+                            secure=secure)
 
     def _clear_cookie(self, response):
         config = current_app.config
@@ -414,6 +431,7 @@ class LoginManager(object):
 
 #: A proxy for the current user.
 current_user = LocalProxy(lambda: _request_ctx_stack.top.user)
+
 
 def _user_context_processor():
     return dict(current_user=_get_user())
@@ -540,7 +558,8 @@ class LoginRequiredMixin(object):
     """
     @login_required
     def dispatch_request(self, *args, **kwargs):
-        return super(LoginRequiredMixin, self).dispatch_request(*args, **kwargs)
+        return super(LoginRequiredMixin, self).dispatch_request(*args,
+                                                                **kwargs)
 
 
 class UserMixin(object):
