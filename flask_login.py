@@ -194,7 +194,6 @@ class LoginManager(object):
         self.user_callback = None
         self.unauthorized_callback = None
         self.needs_refresh_callback = None
-        self.signer = TimestampSigner
 
     def user_loader(self, callback):
         """
@@ -237,6 +236,8 @@ class LoginManager(object):
                                       the app that adds a `current_user`
                                       variable to the template.
         """
+        app.signer = TimestampSigner(app.secret_key, salt="flask_login|%s" %
+                                     app.config.get("SERVER_NAME"))
         app.login_manager = self
         app.before_request(self._load_user)
         app.after_request(self._update_remember_cookie)
@@ -370,7 +371,7 @@ class LoginManager(object):
     def _load_from_cookie(self, cookie):
         age = current_app.config.get("REMEMBER_COOKIE_DURATION")
         try:
-            cookie = self.signer.unsign(cookie, max_age=age)
+            cookie = current_app.signer.unsign(cookie, max_age=age)
         except:
             return
         user_id = None
@@ -410,7 +411,7 @@ class LoginManager(object):
             data = encode_cookie(str(session["user_id"]))
         expires = datetime.utcnow() + duration
         # sign the cookie with itsdangerous
-        signed_data = self.signer.sign(data)
+        signed_data = current_app.signer.sign(data)
         # actually set it
         response.set_cookie(cookie_name,
                             signed_data,
